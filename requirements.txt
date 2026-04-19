@@ -1,0 +1,6 @@
+pyrogram
+tgcrypto
+groq
+yt-dlp
+flask
+gunicorn
