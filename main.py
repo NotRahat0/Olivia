@@ -32,11 +32,12 @@ def run_server():
     except Exception as e:
         logger.error(f"Flask server error: {e}")
 
-# ================== CONFIGURATION ==================
-API_ID = 
-API_HASH = ""
-BOT_TOKEN = ""
-GROQ_API_KEY = "" 
+# ================== CONFIGURATION (SECURE) ==================
+# Render-er Environment Variables theke data nibe
+API_ID = int(os.environ.get("API_ID", ))
+API_HASH = os.environ.get("API_HASH", "")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 
 # ================== CLIENT INITIALIZATION ==================
 app = Client("olivia_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
