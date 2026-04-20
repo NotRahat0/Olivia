@@ -41,7 +41,6 @@ def run_server():
         logger.error(f"Flask server error: {e}")
 
 # ================== CONFIGURATION ==================
-# শুধু Environment Variables থেকে নিবে
 API_ID = os.environ.get("API_ID")
 API_HASH = os.environ.get("API_HASH")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -60,9 +59,14 @@ except ValueError:
     sys.exit(1)
 
 # ================== CLIENT INITIALIZATION ==================
-# Render-এর জন্য session file temporary folder এ রাখবো
 session_path = os.path.join(tempfile.gettempdir(), "olivia_bot")
-app = Client(session_path, api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client(
+    session_path, 
+    api_id=API_ID, 
+    api_hash=API_HASH, 
+    bot_token=BOT_TOKEN,
+    workdir=tempfile.gettempdir()  # এই লাইন যোগ করুন
+)
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
 chat_memory = {}
@@ -71,15 +75,13 @@ user_mood = {}
 # ================== PERSONALITY PROMPT ENGINE ==================
 def get_system_prompt(user_id, first_time):
     mood = user_mood.get(user_id, "normal")
-    base_prompt = f"""
-You are Olivia, a real human-like girl. You are sweet, flirty, and caring.
+    base_prompt = f"""You are Olivia, a real human-like girl. You are sweet, flirty, and caring.
 CONVERSATION RULES:
 1. FIRST ENCOUNTER: If is_first_msg is True, reply in short, cute English.
 2. LANGUAGE: Match the user's language. If Bangla, use natural 'Tumi' style. 
 3. LENGTH: Match user's message length. Long for long, short for short.
 4. PERSONALITY: Be flirty, emotional and natural.
-is_first_msg = {first_time}
-"""
+is_first_msg = {first_time}"""
     moods = {
         "happy": " Current Mood: Very playful and giggly! ✨🥰",
         "sad": " Current Mood: Feeling emotional and clingy. 🥺❤️",
@@ -194,7 +196,6 @@ async def handle_all_messages(client, message: Message):
         try:
             await message.reply_chat_action(ChatAction.TYPING)
             reply = await generate_reply(user_id, text)
-            # Split long messages
             if len(reply) > 4000:
                 for i in range(0, len(reply), 4000):
                     await message.reply_text(reply[i:i+4000])
@@ -214,7 +215,8 @@ async def main():
     logger.info("🤖 Olivia AI is starting...")
     
     # Start health check server in background
-    Thread(target=run_server, daemon=True).start()
+    thread = Thread(target=run_server, daemon=True)
+    thread.start()
     
     # Start bot
     logger.info("✅ Bot is running!")
@@ -222,10 +224,7 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        # নতুন event loop তৈরি করলাম Render-এর জন্য
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        loop.run_until_complete(main())
+        asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
