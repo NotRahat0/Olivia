@@ -3,6 +3,7 @@ import asyncio
 import os
 import sys
 import logging
+import tempfile
 from pyrogram import Client, filters
 from pyrogram.types import Message
 from pyrogram.enums import ChatAction
@@ -10,6 +11,7 @@ from groq import AsyncGroq
 import yt_dlp
 from flask import Flask
 from threading import Thread
+from waitress import serve
 
 # ================== LOGGING SETUP ==================
 logging.basicConfig(
@@ -34,8 +36,7 @@ def run_server():
     port = int(os.environ.get("PORT", 8080))
     try:
         logger.info(f"Starting Flask server on port {port}")
-        # Use waitress or gunicorn for production
-        server.run(host='0.0.0.0', port=port, threaded=True)
+        serve(server, host='0.0.0.0', port=port)
     except Exception as e:
         logger.error(f"Flask server error: {e}")
 
@@ -59,7 +60,9 @@ except ValueError:
     sys.exit(1)
 
 # ================== CLIENT INITIALIZATION ==================
-app = Client("olivia_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# Render-এর জন্য session file temporary folder এ রাখবো
+session_path = os.path.join(tempfile.gettempdir(), "olivia_bot")
+app = Client(session_path, api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
 
 chat_memory = {}
@@ -101,7 +104,7 @@ async def generate_reply(user_id, text):
             model="llama-3.3-70b-versatile", 
             messages=[{"role": "system", "content": get_system_prompt(user_id, first_time)}, *chat_memory[user_id]],
             temperature=0.85,
-            timeout=30.0  # Timeout যোগ করলাম
+            timeout=30.0
         )
         reply = completion.choices[0].message.content
     except asyncio.TimeoutError:
@@ -219,7 +222,10 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        # নতুন event loop তৈরি করলাম Render-এর জন্য
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
